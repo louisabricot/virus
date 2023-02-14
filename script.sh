@@ -9,7 +9,7 @@ export PATH="$PATH:$HOME/.local/qemu/usr/bin"
 
 # Downloading the Fedora VM for qemu risc-v
 cd /goinfre/$USER
-wget Fedora-Minimal-Rawhide-20200108.n.0-fw_payload-uboot-qemu-virt-smode.elf
+wget https://dl.fedoraproject.org/pub/alt/risc-v/repo/virt-builder-images/images/Fedora-Minimal-Rawhide-20200108.n.0-fw_payload-uboot-qemu-virt-smode.elf
 wget https://dl.fedoraproject.org/pub/alt/risc-v/repo/virt-builder-images/images/Fedora-Minimal-Rawhide-20200108.n.0-sda.raw.xz
 unxz Fedora-Minimal-Rawhide-*-sda.raw.xz
 
