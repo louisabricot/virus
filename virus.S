@@ -19,6 +19,9 @@
 %define O_TRUNC			1000q
 %define ACCESSPERMS		777q
 
+%define PT_LOAD			1
+%define PT_NOTE			4
+
 global main
 extern puts
 extern perror
@@ -69,8 +72,10 @@ main:
     cmp rdi, 2
     jne print_usage
 
+; open the executable and map it to memory
+
 open_file:
-    mov rdi, [rsi + 8]     ; av[0]
+    mov rdi, [rsi + 8]		; av[0]
     mov rsi, O_RDONLY		; O_RDONLY
 	xor rdx, rdx
     mov rax, SYS_OPEN		; open syscall 
@@ -110,6 +115,8 @@ close_file:
     cmp rax, 0
     js perror_close
 
+; various ELF checks
+
 check_elf_header:
 .magic_number:
 	cmp dword [r14], ELFMAG
@@ -118,9 +125,6 @@ check_elf_header:
 .padding:
 	cmp dword [r14 + elfhdr.ei_pad], 0xCAFEBABE
 	je louisawashere
-;.type:
-;	cmp word [r14 + 0x10], 0x02
-;	jne wrongtype
 .class:
 	cmp byte [r14 + elfhdr.ei_class], ELFCLASS64
 	je elfclass64
@@ -128,23 +132,46 @@ check_elf_header:
 	je elfclass32
 	jmp notclass
 
+; injection of ELF64
+
 elfclass64:
 .save_entrypoint:
-	mov rdi, [r14 + elfhdr.e_phoff]				;program header offset
-	mov r13, [r14 + elfhdr.e_entry]				;store original entrypoint
-try_segment_padding:
+	xor r13, r13
+	mov r13, qword [r14 + elfhdr.e_entry]				;store original entrypoint
+
+parse_section_headers:
 	xor rcx, rcx
-	mov cx, [r14 + elfhdr.e_phnum]				;store number of program header entries
-
-	.loop:
-
+	xor rdx, rdx
+	mov cx, word [r14 + elfhdr.e_phnum]					;store number of program header entries
+	mov dx, word [r14 + elfhdr.e_phentsize]				;store size of a program entry
+	mov rbx, qword [r14 + elfhdr.e_phoff]
+.check_pt_load:
+	add rbx, rdx
 	dec rcx
+	cmp rcx, 0
+	je finished
+	cmp dword [r14 + rbx + phdr.p_type], PT_LOAD
+	; check the permission
+	jne .check_pt_load
+	mov rax, rbx
+	add rax, rdx
+	cmp dword [r14 + rax + phdr.p_type], PT_LOAD
+	je victory
+	jne .check_pt_load
+
 	; avancer de de phdr en phdr
 	; regarder si PT_LOAD 
 	; checker les permissions
 	; calculer la taille du padding
 	; si possible, inject
 	; sinon essayer autre chose
+finished:
+	mov rdi, over
+	jmp print
+
+victory:
+	mov rdi, load
+	jmp print
 
 woody:
 .create:
@@ -190,7 +217,7 @@ elfclass32:
 perror:
 	call perror
 	mov rdi, rax
-	call puts
+	call puts WRT ..plt
 	jmp exit
 	    
 perror_write:
@@ -226,7 +253,7 @@ notelf:
 	jmp print
 
 print:
-    call puts
+    call puts WRT ..plt
 
 exit:
     pop r14
@@ -248,4 +275,7 @@ is64 db "is 64", 0x0
 is32 db "is 32", 0x0
 alreadyinfected db "This executable was already infected!", 0x0
 notexec db "this is not an executable", 0x0
+load db "two pt_load", 0x0
+note db "je suis un pt_note", 0x0
 wrongclass db "wrong class for elf", 0x0
+over db "end of iteration" , 0x0
