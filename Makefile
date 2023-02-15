@@ -1,4 +1,5 @@
 TARGET:= woody_woodpacker
+WOODY:= woody
 
 CC:= clang
 AS:= nasm
@@ -19,6 +20,7 @@ clean:
 .PHONY: fclean
 fclean: clean
 	@/bin/rm -rf $(TARGET)
+	@/bin/rm -rf $(WOODY)
 
 .PHONY: re
 re: fclean all
